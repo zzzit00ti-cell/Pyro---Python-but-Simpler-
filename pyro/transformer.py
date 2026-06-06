@@ -7,12 +7,6 @@ class PyTransformer:
     def indent_str(self):
         return "    " * self.indent
 
-    def _indent_lines(self, text):
-        """Add current indentation to all lines in text."""
-        indent = self.indent_str()
-        lines = text.split('\n')
-        return '\n'.join(indent + line if line else line for line in lines)
-
     def transform(self, node):
         if isinstance(node, Program):
             return "\n".join(self.transform(stmt) for stmt in node.statements)
@@ -21,7 +15,7 @@ class PyTransformer:
             self.indent += 1
             body = "\n".join(self.transform(stmt) for stmt in node.body)
             self.indent -= 1
-            return f"def {node.name}({params}):\n{body}"
+            return f"{self.indent_str()}def {node.name}({params}):\n{body}"
         elif isinstance(node, ClassDef):
             self.indent += 1
             members = []
@@ -43,7 +37,7 @@ class PyTransformer:
             self.indent -= 1
             indent = self.indent_str()
             body = "\n".join(f"{indent}    {m}" for m in members) if members else f"{indent}    pass"
-            return f"class {node.name}:\n{body}"
+            return f"{indent}class {node.name}:\n{body}"
         elif isinstance(node, Constructor):
             params = node.params
             if not params or params[0] != 'self':
@@ -57,12 +51,12 @@ class PyTransformer:
             self.indent += 1
             then = "\n".join(self.transform(stmt) for stmt in node.then_body)
             self.indent -= 1
-            result = f"if {cond}:\n{then}"
+            result = f"{self.indent_str()}if {cond}:\n{then}"
             if node.else_body:
                 self.indent += 1
                 else_ = "\n".join(self.transform(stmt) for stmt in node.else_body)
                 self.indent -= 1
-                result += f"\nelse:\n{else_}"
+                result += f"\n{self.indent_str()}else:\n{else_}"
             return result
         elif isinstance(node, ForStmt):
             var = node.var
@@ -72,13 +66,13 @@ class PyTransformer:
             self.indent += 1
             body = "\n".join(self.transform(stmt) for stmt in node.body)
             self.indent -= 1
-            return f"for {var} in {iterable}:\n{body}"
+            return f"{self.indent_str()}for {var} in {iterable}:\n{body}"
         elif isinstance(node, WhileStmt):
             cond = self.transform(node.cond)
             self.indent += 1
             body = "\n".join(self.transform(stmt) for stmt in node.body)
             self.indent -= 1
-            return f"while {cond}:\n{body}"
+            return f"{self.indent_str()}while {cond}:\n{body}"
         elif isinstance(node, Assign):
             value = self.transform(node.value)
             return f"{self.indent_str()}{node.target} = {value}"
