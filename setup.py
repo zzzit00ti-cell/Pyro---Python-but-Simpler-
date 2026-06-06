@@ -25,7 +25,7 @@ setup(
         "Operating System :: OS Independent",
         "Topic :: Software Development :: Compilers",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.12",
     entry_points={
         "console_scripts": [
             "pyro = pyro.cli:main",
