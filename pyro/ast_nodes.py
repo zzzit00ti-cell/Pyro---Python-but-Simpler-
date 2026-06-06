@@ -87,3 +87,8 @@ class Call(ASTNode):
     def __init__(self, func, args):
         self.func = func
         self.args = args
+        
+class MemberAccess(ASTNode):
+    def __init__(self, obj, attr):
+        self.obj = obj   # e.g., Var('this') or Var('x')
+        self.attr = attr # string attribute name
