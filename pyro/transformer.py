@@ -50,7 +50,6 @@ class PyTransformer:
             if not members:
                 members.append("pass")
             class_body = "\n".join(members)
-            # Indent entire class body one level
             class_body = self._indent_lines(class_body)
             return f"class {node.name}:\n{class_body}"
 
@@ -109,6 +108,10 @@ class PyTransformer:
             obj = self.transform(node.obj)
             value = self.transform(node.value)
             return f"{obj}.{node.attr} = {value}"
+
+        elif isinstance(node, MemberAccess):
+            obj = self.transform(node.obj)
+            return f"{obj}.{node.attr}"
 
         elif isinstance(node, ExprStmt):
             expr = self.transform(node.expr)
