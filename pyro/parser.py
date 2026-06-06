@@ -7,6 +7,7 @@ class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
+        self.in_class = False   # flag to allow 'constructor' keyword
 
     def peek(self):
         if self.pos < len(self.tokens):
@@ -41,6 +42,10 @@ class Parser:
         return Program(stmts)
 
     def parse_statement(self):
+        # Constructor is only allowed inside a class
+        if self.in_class and self.match('KEYWORD', 'constructor'):
+            return self.parse_constructor()
+
         if self.match('KEYWORD', 'func'):
             return self.parse_func()
         if self.match('KEYWORD', 'class'):
@@ -74,10 +79,9 @@ class Parser:
                 if self.match('OPERATOR', '='):
                     self.consume('OPERATOR', '=')
                     value = self.parse_expr()
-                    obj = Var(target_name)  # e.g., Var('this')
+                    obj = Var(target_name)
                     return MemberAssign(obj, attr, value)
                 else:
-                    # Member access expression (e.g., this.name) – rewind
                     self.pos -= 3
                     expr = self.parse_expr()
                     return ExprStmt(expr)
@@ -91,6 +95,22 @@ class Parser:
                 return ExprStmt(expr)
         expr = self.parse_expr()
         return ExprStmt(expr)
+
+    def parse_constructor(self):
+        self.consume('KEYWORD', 'constructor')
+        self.consume('PUNCT', '(')
+        params = []
+        if not self.match('PUNCT', ')'):
+            while True:
+                params.append(self.consume('IDENT')[1])
+                if self.match('PUNCT', ')'):
+                    break
+                self.consume('PUNCT', ',')
+        self.consume('PUNCT', ')')
+        if self.match('PUNCT', ':'):
+            self.consume('PUNCT', ':')
+        body = self.parse_block(stop_on=['end'])
+        return Constructor(params, body)
 
     def parse_func(self):
         self.consume('KEYWORD', 'func')
@@ -106,7 +126,7 @@ class Parser:
         self.consume('PUNCT', ')')
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block()
+        body = self.parse_block(stop_on=['end'])
         return FuncDef(name, params, body)
 
     def parse_class(self):
@@ -114,7 +134,11 @@ class Parser:
         name = self.consume('IDENT')[1]
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block()
+        # Enter class context
+        old_in_class = self.in_class
+        self.in_class = True
+        body = self.parse_block(stop_on=['end'])
+        self.in_class = old_in_class
         return ClassDef(name, body)
 
     def parse_if(self):
@@ -122,13 +146,14 @@ class Parser:
         cond = self.parse_expr()
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        then_body = self.parse_block()
+        then_body = self.parse_block(stop_on=['end', 'else'])
         else_body = None
         if self.match('KEYWORD', 'else'):
             self.consume('KEYWORD', 'else')
             if self.match('PUNCT', ':'):
                 self.consume('PUNCT', ':')
-            else_body = self.parse_block()
+            else_body = self.parse_block(stop_on=['end'])
+        # Consume the final 'end' (already consumed by parse_block)
         return IfStmt(cond, then_body, else_body)
 
     def parse_for(self):
@@ -138,7 +163,7 @@ class Parser:
         iterable = self.parse_expr()
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block()
+        body = self.parse_block(stop_on=['end'])
         return ForStmt(var, iterable, body)
 
     def parse_while(self):
@@ -146,15 +171,22 @@ class Parser:
         cond = self.parse_expr()
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block()
+        body = self.parse_block(stop_on=['end'])
         return WhileStmt(cond, body)
 
-    def parse_block(self):
+    def parse_block(self, stop_on=None):
+        """Parse a block of statements until a keyword in stop_on is encountered."""
+        if stop_on is None:
+            stop_on = ['end']
         stmts = []
-        while self.peek() and not (self.match('KEYWORD', 'end')):
+        while self.peek():
+            if self.match('KEYWORD') and self.peek()[1] in stop_on:
+                # Stop before the terminating keyword (consume it outside)
+                break
             stmts.append(self.parse_statement())
-        if self.match('KEYWORD', 'end'):
-            self.consume('KEYWORD', 'end')
+        # Consume the terminating keyword (end, else, etc.)
+        if self.match('KEYWORD') and self.peek()[1] in stop_on:
+            self.consume('KEYWORD', self.peek()[1])
         return stmts
 
     def parse_expr(self):
