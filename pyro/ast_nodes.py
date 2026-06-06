@@ -44,9 +44,9 @@ class Assign(ASTNode):
         self.value = value
 
 class MemberAssign(ASTNode):
-    def __init__(self, obj, member, value):
-        self.obj = obj
-        self.member = member
+    def __init__(self, obj, attr, value):
+        self.obj = obj    # e.g., Var('this')
+        self.attr = attr  # string, e.g., 'name'
         self.value = value
 
 class ExprStmt(ASTNode):
