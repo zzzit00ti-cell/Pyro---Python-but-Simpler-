@@ -43,6 +43,12 @@ class Assign(ASTNode):
         self.target = target
         self.value = value
 
+class MemberAssign(ASTNode):
+    def __init__(self, obj, member, value):
+        self.obj = obj
+        self.member = member
+        self.value = value
+
 class ExprStmt(ASTNode):
     def __init__(self, expr):
         self.expr = expr
