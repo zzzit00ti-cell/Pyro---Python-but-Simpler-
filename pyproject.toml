@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyro-lang"
-version = "0.1.0"
+version = "0.1.3"
 description = "A friendlier Python that compiles to Python"
 readme = "README.md"
 license = {text = "MIT"}
