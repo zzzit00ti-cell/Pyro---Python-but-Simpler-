@@ -1,0 +1,12 @@
+class Person
+    constructor(name, age)
+        this.name = name
+        this.age = age
+    end
+    func introduce()
+        print "I'm " + this.name + ", age " + str(this.age)
+    end
+end
+
+p = Person("Pyro", 1)
+p.introduce()
