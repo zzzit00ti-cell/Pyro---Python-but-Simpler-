@@ -100,7 +100,27 @@ class Parser:
         name = self.consume('IDENT')[1]
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block()
+        body = []
+        while self.peek() and not self.match('KEYWORD', 'end'):
+            if self.match('KEYWORD', 'constructor'):
+                self.consume('KEYWORD', 'constructor')
+                self.consume('PUNCT', '(')
+                params = []
+                if not self.match('PUNCT', ')'):
+                    while True:
+                        params.append(self.consume('IDENT')[1])
+                        if self.match('PUNCT', ')'):
+                            break
+                        self.consume('PUNCT', ',')
+                self.consume('PUNCT', ')')
+                if self.match('PUNCT', ':'):
+                    self.consume('PUNCT', ':')
+                constructor_body = self.parse_block()
+                body.append(Constructor(params, constructor_body))
+            else:
+                body.append(self.parse_statement())
+        if self.match('KEYWORD', 'end'):
+            self.consume('KEYWORD', 'end')
         return ClassDef(name, body)
 
     def parse_if(self):
@@ -137,7 +157,7 @@ class Parser:
 
     def parse_block(self):
         stmts = []
-        while self.peek() and not (self.match('KEYWORD', 'end')):
+        while self.peek() and not (self.match('KEYWORD', 'end') or self.match('KEYWORD', 'else')):
             stmts.append(self.parse_statement())
         if self.match('KEYWORD', 'end'):
             self.consume('KEYWORD', 'end')
