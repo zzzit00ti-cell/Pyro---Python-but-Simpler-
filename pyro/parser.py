@@ -7,12 +7,10 @@ class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
-        self.in_class = False   # flag to allow 'constructor' keyword
+        self.in_class = False
 
     def peek(self):
-        if self.pos < len(self.tokens):
-            return self.tokens[self.pos]
-        return None
+        return self.tokens[self.pos] if self.pos < len(self.tokens) else None
 
     def consume(self, expected_type=None, expected_value=None):
         tok = self.peek()
@@ -42,7 +40,7 @@ class Parser:
         return Program(stmts)
 
     def parse_statement(self):
-        # Constructor is only allowed inside a class
+        # Constructor only inside class
         if self.in_class and self.match('KEYWORD', 'constructor'):
             return self.parse_constructor()
 
@@ -70,29 +68,22 @@ class Parser:
             self.consume('OPERATOR', '=')
             value = self.parse_expr()
             return Assign(target, value)
-        if self.match('IDENT'):
-            target_name = self.consume('IDENT')[1]
-            # Check for member access: this.attr
-            if self.match('PUNCT', '.'):
-                self.consume('PUNCT', '.')
-                attr = self.consume('IDENT')[1]
-                if self.match('OPERATOR', '='):
-                    self.consume('OPERATOR', '=')
-                    value = self.parse_expr()
-                    obj = Var(target_name)
-                    return MemberAssign(obj, attr, value)
-                else:
-                    self.pos -= 3
-                    expr = self.parse_expr()
-                    return ExprStmt(expr)
-            elif self.match('OPERATOR', '='):
+        # Assignment or expression
+        if self.match('IDENT') or self.match('THIS'):
+            # Parse left-hand side (could be simple var or member access)
+            left = self.parse_atom()
+            if self.match('OPERATOR', '='):
                 self.consume('OPERATOR', '=')
-                value = self.parse_expr()
-                return Assign(target_name, value)
+                right = self.parse_expr()
+                if isinstance(left, Var):
+                    return Assign(left.name, right)
+                elif isinstance(left, MemberAccess):
+                    return MemberAssign(left.obj, left.attr, right)
+                else:
+                    raise SyntaxError("Invalid left-hand side in assignment")
             else:
-                self.pos -= 1
-                expr = self.parse_expr()
-                return ExprStmt(expr)
+                # It's an expression statement
+                return ExprStmt(left)
         expr = self.parse_expr()
         return ExprStmt(expr)
 
@@ -109,7 +100,7 @@ class Parser:
         self.consume('PUNCT', ')')
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block(stop_on=['end'])
+        body = self.parse_block(['end'])
         return Constructor(params, body)
 
     def parse_func(self):
@@ -126,7 +117,7 @@ class Parser:
         self.consume('PUNCT', ')')
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block(stop_on=['end'])
+        body = self.parse_block(['end'])
         return FuncDef(name, params, body)
 
     def parse_class(self):
@@ -134,11 +125,10 @@ class Parser:
         name = self.consume('IDENT')[1]
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        # Enter class context
-        old_in_class = self.in_class
+        old = self.in_class
         self.in_class = True
-        body = self.parse_block(stop_on=['end'])
-        self.in_class = old_in_class
+        body = self.parse_block(['end'])
+        self.in_class = old
         return ClassDef(name, body)
 
     def parse_if(self):
@@ -146,14 +136,14 @@ class Parser:
         cond = self.parse_expr()
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        then_body = self.parse_block(stop_on=['end', 'else'])
+        then_body = self.parse_block(['end', 'else'])
         else_body = None
         if self.match('KEYWORD', 'else'):
             self.consume('KEYWORD', 'else')
             if self.match('PUNCT', ':'):
                 self.consume('PUNCT', ':')
-            else_body = self.parse_block(stop_on=['end'])
-        # Consume the final 'end' (already consumed by parse_block)
+            else_body = self.parse_block(['end'])
+        # The 'end' is already consumed by parse_block calls
         return IfStmt(cond, then_body, else_body)
 
     def parse_for(self):
@@ -163,7 +153,7 @@ class Parser:
         iterable = self.parse_expr()
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block(stop_on=['end'])
+        body = self.parse_block(['end'])
         return ForStmt(var, iterable, body)
 
     def parse_while(self):
@@ -171,22 +161,15 @@ class Parser:
         cond = self.parse_expr()
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
-        body = self.parse_block(stop_on=['end'])
+        body = self.parse_block(['end'])
         return WhileStmt(cond, body)
 
-    def parse_block(self, stop_on=None):
-        """Parse a block of statements until a keyword in stop_on is encountered."""
-        if stop_on is None:
-            stop_on = ['end']
+    def parse_block(self, stop_on):
         stmts = []
-        while self.peek():
-            if self.match('KEYWORD') and self.peek()[1] in stop_on:
-                # Stop before the terminating keyword (consume it outside)
-                break
+        while self.peek() and not (self.match('KEYWORD') and self.peek()[1] in stop_on):
             stmts.append(self.parse_statement())
-        # Consume the terminating keyword (end, else, etc.)
         if self.match('KEYWORD') and self.peek()[1] in stop_on:
-            self.consume('KEYWORD', self.peek()[1])
+            self.consume('KEYWORD', self.peek()[1])  # consume the 'end' or 'else'
         return stmts
 
     def parse_expr(self):
@@ -236,14 +219,50 @@ class Parser:
         return left
 
     def parse_primary(self):
+        return self.parse_atom()
+
+    def parse_atom(self):
+        # Handle parenthesized expression
+        if self.match('PUNCT', '('):
+            self.consume('PUNCT', '(')
+            expr = self.parse_expr()
+            self.consume('PUNCT', ')')
+            return expr
+
+        # Number literal
         if self.match('NUMBER'):
             val = self.consume('NUMBER')[1]
             return Number(val)
+
+        # String literal
         if self.match('STRING'):
             val = self.consume('STRING')[1]
             return String(val)
+
+        # Range literal: number .. number
+        if self.match('NUMBER'):
+            left = self.parse_primary()
+            if self.match('RANGE'):
+                self.consume('RANGE')
+                right = self.parse_primary()
+                return Range(left, right)
+            return left
+
+        # 'this' keyword
+        if self.match('THIS'):
+            self.consume('THIS')
+            obj = This()
+            # Handle member access: this.name
+            if self.match('PUNCT', '.'):
+                self.consume('PUNCT', '.')
+                attr = self.consume('IDENT')[1]
+                return MemberAccess(obj, attr)
+            return obj
+
+        # Identifier (variable or function call)
         if self.match('IDENT'):
             name = self.consume('IDENT')[1]
+            # Function call?
             if self.match('PUNCT', '('):
                 self.consume('PUNCT', '(')
                 args = []
@@ -255,21 +274,18 @@ class Parser:
                         self.consume('PUNCT', ',')
                 self.consume('PUNCT', ')')
                 return Call(Var(name), args)
-            return Var(name)
-        if self.match('THIS'):
-            self.consume('THIS')
-            return This()
-        if self.match('PUNCT', '('):
-            self.consume('PUNCT', '(')
-            expr = self.parse_expr()
-            self.consume('PUNCT', ')')
-            return expr
-        # Range literal: number .. number
-        if self.match('NUMBER'):
-            left = self.parse_primary()
-            if self.match('RANGE'):
-                self.consume('RANGE')
-                right = self.parse_primary()
-                return Range(left, right)
-            return left
+            # Member access: var.attr
+            obj = Var(name)
+            if self.match('PUNCT', '.'):
+                self.consume('PUNCT', '.')
+                attr = self.consume('IDENT')[1]
+                return MemberAccess(obj, attr)
+            return obj
+
         raise SyntaxError(f"Unexpected token: {self.peek()}")
+
+# Helper AST node for member access (not assignment)
+class MemberAccess:
+    def __init__(self, obj, attr):
+        self.obj = obj
+        self.attr = attr
