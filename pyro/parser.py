@@ -1,6 +1,6 @@
 from .ast_nodes import (
     Program, FuncDef, ClassDef, Constructor, IfStmt, ForStmt, WhileStmt,
-    Assign, MemberAssign, ExprStmt, Return, BinOp, Number, String, Var, This, Range, Call
+    Assign, MemberAssign, ExprStmt, Return, BinOp, Number, String, Var, This, Range, Call, MemberAccess
 )
 
 class Parser:
@@ -68,22 +68,21 @@ class Parser:
             self.consume('OPERATOR', '=')
             value = self.parse_expr()
             return Assign(target, value)
-        # Assignment or expression
+        # Handle assignment or expression (including member access)
         if self.match('IDENT') or self.match('THIS'):
-            # Parse left-hand side (could be simple var or member access)
-            left = self.parse_atom()
+            # Parse left-hand side
+            lhs = self.parse_atom()
             if self.match('OPERATOR', '='):
                 self.consume('OPERATOR', '=')
-                right = self.parse_expr()
-                if isinstance(left, Var):
-                    return Assign(left.name, right)
-                elif isinstance(left, MemberAccess):
-                    return MemberAssign(left.obj, left.attr, right)
+                rhs = self.parse_expr()
+                if isinstance(lhs, Var):
+                    return Assign(lhs.name, rhs)
+                elif isinstance(lhs, MemberAccess):
+                    return MemberAssign(lhs.obj, lhs.attr, rhs)
                 else:
                     raise SyntaxError("Invalid left-hand side in assignment")
             else:
-                # It's an expression statement
-                return ExprStmt(left)
+                return ExprStmt(lhs)
         expr = self.parse_expr()
         return ExprStmt(expr)
 
@@ -143,7 +142,7 @@ class Parser:
             if self.match('PUNCT', ':'):
                 self.consume('PUNCT', ':')
             else_body = self.parse_block(['end'])
-        # The 'end' is already consumed by parse_block calls
+        # The 'end' is consumed by the parse_block calls
         return IfStmt(cond, then_body, else_body)
 
     def parse_for(self):
@@ -222,7 +221,7 @@ class Parser:
         return self.parse_atom()
 
     def parse_atom(self):
-        # Handle parenthesized expression
+        # Parenthesized expression
         if self.match('PUNCT', '('):
             self.consume('PUNCT', '(')
             expr = self.parse_expr()
@@ -241,10 +240,10 @@ class Parser:
 
         # Range literal: number .. number
         if self.match('NUMBER'):
-            left = self.parse_primary()
+            left = self.parse_atom()
             if self.match('RANGE'):
                 self.consume('RANGE')
-                right = self.parse_primary()
+                right = self.parse_atom()
                 return Range(left, right)
             return left
 
@@ -252,7 +251,6 @@ class Parser:
         if self.match('THIS'):
             self.consume('THIS')
             obj = This()
-            # Handle member access: this.name
             if self.match('PUNCT', '.'):
                 self.consume('PUNCT', '.')
                 attr = self.consume('IDENT')[1]
@@ -283,9 +281,3 @@ class Parser:
             return obj
 
         raise SyntaxError(f"Unexpected token: {self.peek()}")
-
-# Helper AST node for member access (not assignment)
-class MemberAccess:
-    def __init__(self, obj, attr):
-        self.obj = obj
-        self.attr = attr
