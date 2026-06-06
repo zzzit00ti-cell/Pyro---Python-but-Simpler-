@@ -1,6 +1,7 @@
 from .ast_nodes import (
     Program, FuncDef, ClassDef, Constructor, IfStmt, ForStmt, WhileStmt,
-    Assign, ExprStmt, Return, BinOp, Number, String, Var, This, Range, Call
+    Assign, ExprStmt, Return, BinOp, Number, String, Var, This, Range, Call,
+    MemberAssign
 )
 
 class Parser:
@@ -65,16 +66,35 @@ class Parser:
             self.consume('OPERATOR', '=')
             value = self.parse_expr()
             return Assign(target, value)
-        if self.match('IDENT'):
-            target = self.consume('IDENT')[1]
+        
+        # Handle assignments (both simple and member) or expression statements
+        if self.match('IDENT') or self.match('THIS'):
+            saved_pos = self.pos
+            expr = self.parse_expr()
+            
+            # Check if this is an assignment
             if self.match('OPERATOR', '='):
                 self.consume('OPERATOR', '=')
                 value = self.parse_expr()
-                return Assign(target, value)
-            else:
-                self.pos -= 1
-                expr = self.parse_expr()
+                
+                # Handle simple variable assignment
+                if isinstance(expr, Var):
+                    return Assign(expr.name, value)
+                
+                # Handle member assignment (this.name = value)
+                # Extract member info from the getattr call
+                if isinstance(expr, Call) and isinstance(expr.func, Var) and expr.func.name == 'getattr':
+                    if len(expr.args) == 2:
+                        obj = expr.args[0]
+                        member = expr.args[1]
+                        if isinstance(member, String):
+                            return MemberAssign(obj, member.value, value)
+                
+                # Fallback for other expressions
                 return ExprStmt(expr)
+            else:
+                return ExprStmt(expr)
+        
         expr = self.parse_expr()
         return ExprStmt(expr)
 
