@@ -22,10 +22,7 @@ class PyTransformer:
         elif isinstance(node, FuncDef):
             params = ", ".join(node.params)
             self.indent += 1
-            body_lines = []
-            for stmt in node.body:
-                body_lines.append(self.transform(stmt))
-            body = "\n".join(body_lines)
+            body = "\n".join(self.transform(stmt) for stmt in node.body)
             body = self._indent_lines(body)
             self.indent -= 1
             return f"def {node.name}({params}):\n{body}"
@@ -35,42 +32,34 @@ class PyTransformer:
             members = []
             for stmt in node.body:
                 if isinstance(stmt, Constructor):
-                    # Transform constructor to __init__
                     params = stmt.params[:]
                     if not params or params[0] != 'self':
                         params.insert(0, 'self')
                     self.indent += 1
-                    body_lines = []
-                    for s in stmt.body:
-                        body_lines.append(self.transform(s))
-                    body = "\n".join(body_lines)
+                    body = "\n".join(self.transform(s) for s in stmt.body)
                     body = self._indent_lines(body)
                     self.indent -= 1
                     members.append(f"def __init__({', '.join(params)}):\n{body}")
                 elif isinstance(stmt, FuncDef):
-                    # Method: ensure 'self' is first parameter
                     if not stmt.params or stmt.params[0] != 'self':
                         stmt.params.insert(0, 'self')
                     members.append(self.transform(stmt))
                 else:
                     members.append(self.transform(stmt))
             self.indent -= 1
-            if members:
-                class_body = "\n".join(members)
-            else:
-                class_body = self.indent_str() + "    pass"
+            if not members:
+                members.append("pass")
+            class_body = "\n".join(members)
+            # Indent entire class body one level
+            class_body = self._indent_lines(class_body)
             return f"class {node.name}:\n{class_body}"
 
         elif isinstance(node, Constructor):
-            # Normally handled inside ClassDef, but keep for completeness
             params = node.params[:]
             if not params or params[0] != 'self':
                 params.insert(0, 'self')
             self.indent += 1
-            body_lines = []
-            for stmt in node.body:
-                body_lines.append(self.transform(stmt))
-            body = "\n".join(body_lines)
+            body = "\n".join(self.transform(stmt) for stmt in node.body)
             body = self._indent_lines(body)
             self.indent -= 1
             return f"def __init__({', '.join(params)}):\n{body}"
@@ -78,19 +67,13 @@ class PyTransformer:
         elif isinstance(node, IfStmt):
             cond = self.transform(node.cond)
             self.indent += 1
-            then_lines = []
-            for stmt in node.then_body:
-                then_lines.append(self.transform(stmt))
-            then_body = "\n".join(then_lines)
+            then_body = "\n".join(self.transform(stmt) for stmt in node.then_body)
             then_body = self._indent_lines(then_body)
             self.indent -= 1
             result = f"if {cond}:\n{then_body}"
             if node.else_body:
                 self.indent += 1
-                else_lines = []
-                for stmt in node.else_body:
-                    else_lines.append(self.transform(stmt))
-                else_body = "\n".join(else_lines)
+                else_body = "\n".join(self.transform(stmt) for stmt in node.else_body)
                 else_body = self._indent_lines(else_body)
                 self.indent -= 1
                 result += f"\nelse:\n{else_body}"
@@ -98,7 +81,6 @@ class PyTransformer:
 
         elif isinstance(node, ForStmt):
             var = node.var
-            # Transform range literal 1..5 -> range(1,6)
             if isinstance(node.iterable, Range):
                 start = self.transform(node.iterable.start)
                 end = self.transform(node.iterable.end)
@@ -106,10 +88,7 @@ class PyTransformer:
             else:
                 iterable = self.transform(node.iterable)
             self.indent += 1
-            body_lines = []
-            for stmt in node.body:
-                body_lines.append(self.transform(stmt))
-            body = "\n".join(body_lines)
+            body = "\n".join(self.transform(stmt) for stmt in node.body)
             body = self._indent_lines(body)
             self.indent -= 1
             return f"for {var} in {iterable}:\n{body}"
@@ -117,10 +96,7 @@ class PyTransformer:
         elif isinstance(node, WhileStmt):
             cond = self.transform(node.cond)
             self.indent += 1
-            body_lines = []
-            for stmt in node.body:
-                body_lines.append(self.transform(stmt))
-            body = "\n".join(body_lines)
+            body = "\n".join(self.transform(stmt) for stmt in node.body)
             body = self._indent_lines(body)
             self.indent -= 1
             return f"while {cond}:\n{body}"
@@ -128,6 +104,11 @@ class PyTransformer:
         elif isinstance(node, Assign):
             value = self.transform(node.value)
             return f"{node.target} = {value}"
+
+        elif isinstance(node, MemberAssign):
+            obj = self.transform(node.obj)
+            value = self.transform(node.value)
+            return f"{obj}.{node.attr} = {value}"
 
         elif isinstance(node, ExprStmt):
             expr = self.transform(node.expr)
