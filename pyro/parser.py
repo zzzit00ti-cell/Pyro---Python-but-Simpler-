@@ -202,12 +202,40 @@ class Parser:
         return left
 
     def parse_multiplication(self):
-        left = self.parse_primary()
+        left = self.parse_postfix()
         while self.match('OPERATOR') and self.peek()[1] in ('*', '/', '%', '//'):
             op = self.consume('OPERATOR')[1]
-            right = self.parse_primary()
+            right = self.parse_postfix()
             left = BinOp(op, left, right)
         return left
+
+    def parse_postfix(self):
+        """Parse postfix operations like member access and function calls."""
+        expr = self.parse_primary()
+        
+        # Handle member access (dot operator) and method calls
+        while self.match('PUNCT', '.'):
+            self.consume('PUNCT', '.')
+            member = self.consume('IDENT')[1]
+            
+            # Check if this is a method call
+            if self.match('PUNCT', '('):
+                self.consume('PUNCT', '(')
+                args = []
+                if not self.match('PUNCT', ')'):
+                    while True:
+                        args.append(self.parse_expr())
+                        if self.match('PUNCT', ')'):
+                            break
+                        self.consume('PUNCT', ',')
+                self.consume('PUNCT', ')')
+                # Create a method call: obj.method(args)
+                expr = Call(Call(Var('getattr'), [expr, String(member)]), args)
+            else:
+                # Attribute access: obj.attr
+                expr = Call(Var('getattr'), [expr, String(member)])
+        
+        return expr
 
     def parse_primary(self):
         if self.match('NUMBER'):
