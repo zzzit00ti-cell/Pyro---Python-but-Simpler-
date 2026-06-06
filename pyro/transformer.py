@@ -7,6 +7,12 @@ class PyTransformer:
     def indent_str(self):
         return "    " * self.indent
 
+    def _indent_lines(self, text):
+        """Add current indentation to all lines in text."""
+        indent = self.indent_str()
+        lines = text.split('\n')
+        return '\n'.join(indent + line if line else line for line in lines)
+
     def transform(self, node):
         if isinstance(node, Program):
             return "\n".join(self.transform(stmt) for stmt in node.statements)
@@ -75,19 +81,19 @@ class PyTransformer:
             return f"while {cond}:\n{body}"
         elif isinstance(node, Assign):
             value = self.transform(node.value)
-            return f"{node.target} = {value}"
+            return f"{self.indent_str()}{node.target} = {value}"
         elif isinstance(node, MemberAssign):
             obj = self.transform(node.obj)
             value = self.transform(node.value)
-            return f"setattr({obj}, '{node.member}', {value})"
+            return f"{self.indent_str()}setattr({obj}, '{node.member}', {value})"
         elif isinstance(node, ExprStmt):
             expr = self.transform(node.expr)
-            return f"{expr}"
+            return f"{self.indent_str()}{expr}"
         elif isinstance(node, Return):
             if node.value:
                 val = self.transform(node.value)
-                return f"return {val}"
-            return "return"
+                return f"{self.indent_str()}return {val}"
+            return f"{self.indent_str()}return"
         elif isinstance(node, BinOp):
             left = self.transform(node.left)
             right = self.transform(node.right)
