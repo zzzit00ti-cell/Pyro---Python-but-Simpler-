@@ -22,7 +22,7 @@ pyro = "pyro.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/pyro-lang/pyro"
-Bug Reports = "https://github.com/pyro-lang/pyro/issues"
+"Bug Reports" = "https://github.com/pyro-lang/pyro/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
