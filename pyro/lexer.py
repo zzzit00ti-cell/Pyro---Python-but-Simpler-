@@ -1,8 +1,8 @@
 import re
 
 KEYWORDS = {
-    'func', 'class', 'if', 'else', 'for', 'while', 'return',
-    'constructor', 'this', 'and', 'or', 'not', 'True', 'False',
+    'func', 'class', 'if', 'for', 'while', 'return',
+    'and', 'or', 'not', 'True', 'False',
     'None', 'import', 'from', 'as', 'try', 'except', 'finally',
     'raise', 'with', 'yield', 'end', 'make', 'print'
 }
@@ -24,7 +24,13 @@ def tokenize(source):
         tok = match.group()
         if tok.startswith('#'):
             continue
-        if tok in KEYWORDS:
+        if tok == 'this':
+            tokens.append(('THIS', 'this'))
+        elif tok == 'else':
+            tokens.append(('KEYWORD', 'else'))
+        elif tok == 'constructor':
+            tokens.append(('KEYWORD', 'constructor'))
+        elif tok in KEYWORDS:
             tokens.append(('KEYWORD', tok))
         elif tok.isdigit():
             tokens.append(('NUMBER', int(tok)))
@@ -35,8 +41,6 @@ def tokenize(source):
         elif tok in ('+', '-', '*', '/', '%', '=', '==', '!=', '<', '>', '<=', '>=',
                      'and', 'or', 'not', '//', '**', '@'):
             tokens.append(('OPERATOR', tok))
-        elif tok == 'this':
-            tokens.append(('THIS', 'this'))
         elif tok in '(){},;:.':
             tokens.append(('PUNCT', tok))
         elif tok.isidentifier():
