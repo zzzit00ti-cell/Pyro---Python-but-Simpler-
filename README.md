@@ -62,11 +62,11 @@ p = Person("Pyro")
 p.say_hello()
 ```
 ## Installation
-- To install Pyro globally
+-  To install Pyro globally
 ```bash
 pip install the-pyro-lang
 ```
-- To update to the latest `v1.0.0` release:
+-  To update to the latest `v1.0.0` release:
 ```bash
 pip install --upgrade the-pyro-lang==1.0.0
 ```
