@@ -2,6 +2,23 @@ from .ast_nodes import (
     Program, FuncDef, ClassDef, Constructor, IfStmt, ForStmt, WhileStmt,
     Assign, MemberAssign, ExprStmt, Return, BinOp, Number, String, Var, This, Range, Call, MemberAccess
 )
+from .error_utils import suggest_fixes
+
+class ParserError(SyntaxError):
+    def __init__(self, msg, token=None, line=None, col=None):
+        if token and not line:
+            line = token[2] if len(token) > 2 else None
+            col = token[3] if len(token) > 3 else None
+        self.msg = msg
+        self.line = line
+        self.col = col
+        suggestions = suggest_fixes(msg)
+        full_msg = msg
+        if line:
+            full_msg = f"Line {line}, col {col}: {msg}"
+        if suggestions:
+            full_msg += "\nPossible fixes:\n  - " + "\n  - ".join(suggestions)
+        super().__init__(full_msg)
 
 class Parser:
     def __init__(self, tokens):
@@ -15,11 +32,11 @@ class Parser:
     def consume(self, expected_type=None, expected_value=None):
         tok = self.peek()
         if not tok:
-            raise SyntaxError("Unexpected end of input")
+            raise ParserError("Unexpected end of input", line=self.tokens[-1][2] if self.tokens else 1)
         if expected_type and tok[0] != expected_type:
-            raise SyntaxError(f"Expected {expected_type}, got {tok[0]} '{tok[1]}'")
+            raise ParserError(f"Expected {expected_type}, got {tok[0]} '{tok[1]}'", token=tok)
         if expected_value and tok[1] != expected_value:
-            raise SyntaxError(f"Expected '{expected_value}', got '{tok[1]}'")
+            raise ParserError(f"Expected '{expected_value}', got '{tok[1]}'", token=tok)
         self.pos += 1
         return tok
 
@@ -40,7 +57,6 @@ class Parser:
         return Program(stmts)
 
     def parse_statement(self):
-        # Constructor only inside class
         if self.in_class and self.match('KEYWORD', 'constructor'):
             return self.parse_constructor()
 
@@ -69,7 +85,6 @@ class Parser:
             value = self.parse_expr()
             return Assign(target, value)
 
-        # Assignment or expression (including chained member access/call)
         lhs = self.parse_expr()
         if self.match('OPERATOR', '='):
             self.consume('OPERATOR', '=')
@@ -79,7 +94,7 @@ class Parser:
             elif isinstance(lhs, MemberAccess):
                 return MemberAssign(lhs.obj, lhs.attr, rhs)
             else:
-                raise SyntaxError("Invalid left-hand side in assignment")
+                raise ParserError("Invalid left-hand side in assignment", token=self.peek())
         else:
             return ExprStmt(lhs)
 
@@ -166,13 +181,11 @@ class Parser:
         return WhileStmt(cond, body)
 
     def parse_block(self):
-        """Parse statements until 'end' or 'else' (do NOT consume them)."""
         stmts = []
         while self.peek() and not (self.match('KEYWORD') and self.peek()[1] in ('end', 'else')):
             stmts.append(self.parse_statement())
         return stmts
 
-    # Expression parsing with precedence
     def parse_expr(self):
         return self.parse_conditional()
 
@@ -220,15 +233,12 @@ class Parser:
         return left
 
     def parse_primary(self):
-        # Parse an atom, then allow chained .identifier and (args)
         node = self.parse_atom()
         while True:
-            # Member access: .identifier
             if self.match('PUNCT', '.'):
                 self.consume('PUNCT', '.')
                 attr = self.consume('IDENT')[1]
                 node = MemberAccess(node, attr)
-            # Function call: ( args )
             elif self.match('PUNCT', '('):
                 self.consume('PUNCT', '(')
                 args = []
@@ -245,14 +255,11 @@ class Parser:
         return node
 
     def parse_atom(self):
-        # Parenthesized expression
         if self.match('PUNCT', '('):
             self.consume('PUNCT', '(')
             expr = self.parse_expr()
             self.consume('PUNCT', ')')
             return expr
-
-        # Number literal (with optional range)
         if self.match('NUMBER'):
             val = self.consume('NUMBER')[1]
             if self.match('RANGE'):
@@ -261,22 +268,15 @@ class Parser:
                 if isinstance(right, Number):
                     return Range(Number(val), right)
                 else:
-                    raise SyntaxError("Expected number after '..'")
+                    raise ParserError("Expected number after '..'", token=self.peek())
             return Number(val)
-
-        # String literal
         if self.match('STRING'):
             val = self.consume('STRING')[1]
             return String(val)
-
-        # 'this' keyword
         if self.match('THIS'):
             self.consume('THIS')
             return This()
-
-        # Identifier
         if self.match('IDENT'):
             name = self.consume('IDENT')[1]
             return Var(name)
-
-        raise SyntaxError(f"Unexpected token: {self.peek()}")
+        raise ParserError(f"Unexpected token", token=self.peek())
