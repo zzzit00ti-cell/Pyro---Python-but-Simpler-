@@ -8,7 +8,6 @@ class PyTransformer:
         return "    " * self.indent
 
     def _indent_lines(self, text):
-        """Add current indentation to every line of a multi-line string."""
         if not text:
             return ""
         lines = text.splitlines()
