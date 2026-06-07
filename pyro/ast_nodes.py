@@ -45,9 +45,14 @@ class Assign(ASTNode):
 
 class MemberAssign(ASTNode):
     def __init__(self, obj, attr, value):
-        self.obj = obj    # e.g., Var('this')
-        self.attr = attr  # string, e.g., 'name'
+        self.obj = obj
+        self.attr = attr
         self.value = value
+
+class MemberAccess(ASTNode):
+    def __init__(self, obj, attr):
+        self.obj = obj
+        self.attr = attr
 
 class ExprStmt(ASTNode):
     def __init__(self, expr):
@@ -87,8 +92,3 @@ class Call(ASTNode):
     def __init__(self, func, args):
         self.func = func
         self.args = args
-        
-class MemberAccess(ASTNode):
-    def __init__(self, obj, attr):
-        self.obj = obj   # e.g., Var('this') or Var('x')
-        self.attr = attr # string attribute name
