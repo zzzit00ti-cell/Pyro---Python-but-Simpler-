@@ -81,19 +81,19 @@ exec(py_code)
 
 ## Roadmap
 
-    MVP (variables, arithmetic, if/else, loops, functions, classes)
+- MVP (variables, arithmetic, if/else, loops, functions, classes)
 
-    Compile to Python source
+- Compile to Python source
 
-    Import system
+- Import system
 
-    Exception handling (try/catch)
+- Exception handling (try/catch)
 
-    List/dict comprehensions
+- List/dict comprehensions
 
-    Standalone bytecode compiler (direct .pyc output)
+- Standalone bytecode compiler (direct .pyc output)
 
-    Self‑hosting (compiler written in Pyro itself)
+- Self‑hosting (compiler written in Pyro itself)
 
 ## Contributing
 
