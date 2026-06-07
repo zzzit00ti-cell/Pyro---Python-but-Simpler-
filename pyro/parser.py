@@ -40,6 +40,7 @@ class Parser:
         return Program(stmts)
 
     def parse_statement(self):
+        # Constructor only inside class
         if self.in_class and self.match('KEYWORD', 'constructor'):
             return self.parse_constructor()
 
@@ -68,23 +69,19 @@ class Parser:
             value = self.parse_expr()
             return Assign(target, value)
 
-        # Assignment or expression (including member access)
-        if self.match('IDENT') or self.match('THIS'):
-            lhs = self.parse_atom()
-            if self.match('OPERATOR', '='):
-                self.consume('OPERATOR', '=')
-                rhs = self.parse_expr()
-                if isinstance(lhs, Var):
-                    return Assign(lhs.name, rhs)
-                elif isinstance(lhs, MemberAccess):
-                    return MemberAssign(lhs.obj, lhs.attr, rhs)
-                else:
-                    raise SyntaxError("Invalid left-hand side in assignment")
+        # Assignment or expression (including chained member access/call)
+        lhs = self.parse_expr()
+        if self.match('OPERATOR', '='):
+            self.consume('OPERATOR', '=')
+            rhs = self.parse_expr()
+            if isinstance(lhs, Var):
+                return Assign(lhs.name, rhs)
+            elif isinstance(lhs, MemberAccess):
+                return MemberAssign(lhs.obj, lhs.attr, rhs)
             else:
-                return ExprStmt(lhs)
-
-        expr = self.parse_expr()
-        return ExprStmt(expr)
+                raise SyntaxError("Invalid left-hand side in assignment")
+        else:
+            return ExprStmt(lhs)
 
     def parse_constructor(self):
         self.consume('KEYWORD', 'constructor')
@@ -169,12 +166,13 @@ class Parser:
         return WhileStmt(cond, body)
 
     def parse_block(self):
-        """Parse statements until 'end' or 'else' keyword (but do NOT consume it)."""
+        """Parse statements until 'end' or 'else' (do NOT consume them)."""
         stmts = []
         while self.peek() and not (self.match('KEYWORD') and self.peek()[1] in ('end', 'else')):
             stmts.append(self.parse_statement())
         return stmts
 
+    # Expression parsing with precedence
     def parse_expr(self):
         return self.parse_conditional()
 
@@ -222,7 +220,29 @@ class Parser:
         return left
 
     def parse_primary(self):
-        return self.parse_atom()
+        # Parse an atom, then allow chained .identifier and (args)
+        node = self.parse_atom()
+        while True:
+            # Member access: .identifier
+            if self.match('PUNCT', '.'):
+                self.consume('PUNCT', '.')
+                attr = self.consume('IDENT')[1]
+                node = MemberAccess(node, attr)
+            # Function call: ( args )
+            elif self.match('PUNCT', '('):
+                self.consume('PUNCT', '(')
+                args = []
+                if not self.match('PUNCT', ')'):
+                    while True:
+                        args.append(self.parse_expr())
+                        if self.match('PUNCT', ')'):
+                            break
+                        self.consume('PUNCT', ',')
+                self.consume('PUNCT', ')')
+                node = Call(node, args)
+            else:
+                break
+        return node
 
     def parse_atom(self):
         # Parenthesized expression
@@ -232,10 +252,9 @@ class Parser:
             self.consume('PUNCT', ')')
             return expr
 
-        # Number literal
+        # Number literal (with optional range)
         if self.match('NUMBER'):
             val = self.consume('NUMBER')[1]
-            # Check for range literal (number .. number)
             if self.match('RANGE'):
                 self.consume('RANGE')
                 right = self.parse_atom()
@@ -253,34 +272,11 @@ class Parser:
         # 'this' keyword
         if self.match('THIS'):
             self.consume('THIS')
-            obj = This()
-            if self.match('PUNCT', '.'):
-                self.consume('PUNCT', '.')
-                attr = self.consume('IDENT')[1]
-                return MemberAccess(obj, attr)
-            return obj
+            return This()
 
         # Identifier
         if self.match('IDENT'):
             name = self.consume('IDENT')[1]
-            # Function call?
-            if self.match('PUNCT', '('):
-                self.consume('PUNCT', '(')
-                args = []
-                if not self.match('PUNCT', ')'):
-                    while True:
-                        args.append(self.parse_expr())
-                        if self.match('PUNCT', ')'):
-                            break
-                        self.consume('PUNCT', ',')
-                self.consume('PUNCT', ')')
-                return Call(Var(name), args)
-            # Member access?
-            obj = Var(name)
-            if self.match('PUNCT', '.'):
-                self.consume('PUNCT', '.')
-                attr = self.consume('IDENT')[1]
-                return MemberAccess(obj, attr)
-            return obj
+            return Var(name)
 
         raise SyntaxError(f"Unexpected token: {self.peek()}")
