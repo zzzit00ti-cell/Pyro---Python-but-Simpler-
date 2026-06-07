@@ -6,10 +6,12 @@ class Program(ASTNode):
         self.statements = statements
 
 class FuncDef(ASTNode):
-    def __init__(self, name, params, body):
+    def __init__(self, name, params, body, return_type=None, is_fast=False):
         self.name = name
         self.params = params
         self.body = body
+        self.return_type = return_type
+        self.is_fast = is_fast
 
 class ClassDef(ASTNode):
     def __init__(self, name, body):
@@ -39,9 +41,10 @@ class WhileStmt(ASTNode):
         self.body = body
 
 class Assign(ASTNode):
-    def __init__(self, target, value):
+    def __init__(self, target, value, type_hint=None):
         self.target = target
         self.value = value
+        self.type_hint = type_hint
 
 class MemberAssign(ASTNode):
     def __init__(self, obj, attr, value):
@@ -92,3 +95,8 @@ class Call(ASTNode):
     def __init__(self, func, args):
         self.func = func
         self.args = args
+
+class Pipeline(ASTNode):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right

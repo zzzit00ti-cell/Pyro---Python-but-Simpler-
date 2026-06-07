@@ -13,11 +13,22 @@ class PyTransformer:
             return "\n".join(self.transform(stmt) for stmt in node.statements)
 
         elif isinstance(node, FuncDef):
-            params = ", ".join(node.params)
+            param_strs = []
+            for p in node.params:
+                name, typ = p
+                param_strs.append(f"{name}: {typ}" if typ else name)
+            params = ", ".join(param_strs)
+            
+            decorators = ""
+            if getattr(node, 'is_fast', False):
+                decorators = f"{self.indent_str()}@__pyro_fast__\n"
+            
+            return_str = f" -> {node.return_type}" if getattr(node, 'return_type', None) else ""
+            
             self.indent += 1
             body = self._transform_body(node.body)
             self.indent -= 1
-            return f"{self.indent_str()}def {node.name}({params}):\n{body}"
+            return f"{decorators}{self.indent_str()}def {node.name}({params}){return_str}:\n{body}"
 
         elif isinstance(node, ClassDef):
             header = f"{self.indent_str()}class {node.name}:"
@@ -26,17 +37,18 @@ class PyTransformer:
             for stmt in node.body:
                 if isinstance(stmt, Constructor):
                     params = stmt.params[:]
-                    if not params or params[0] != 'self':
-                        params.insert(0, 'self')
+                    if not params or params[0][0] != 'self':
+                        params.insert(0, ('self', None))
                     self.indent += 1
                     ctor_body = self._transform_body(stmt.body)
                     self.indent -= 1
-                    members.append(f"{self.indent_str()}def __init__({', '.join(params)}):\n{ctor_body}")
+                    param_strs = [p[0] + (f": {p[1]}" if p[1] else "") for p in params]
+                    members.append(f"{self.indent_str()}def __init__({', '.join(param_strs)}):\n{ctor_body}")
                 elif isinstance(stmt, FuncDef):
                     # Make a copy of params to avoid mutating the AST
                     original_params = stmt.params[:]
-                    if not stmt.params or stmt.params[0] != 'self':
-                        stmt.params.insert(0, 'self')
+                    if not stmt.params or stmt.params[0][0] != 'self':
+                        stmt.params.insert(0, ('self', None))
                     members.append(self.transform(stmt))
                     # Restore original params
                     stmt.params = original_params
@@ -50,12 +62,13 @@ class PyTransformer:
 
         elif isinstance(node, Constructor):
             params = node.params[:]
-            if not params or params[0] != 'self':
-                params.insert(0, 'self')
+            if not params or params[0][0] != 'self':
+                params.insert(0, ('self', None))
             self.indent += 1
             body = self._transform_body(node.body)
             self.indent -= 1
-            return f"{self.indent_str()}def __init__({', '.join(params)}):\n{body}"
+            param_strs = [p[0] + (f": {p[1]}" if p[1] else "") for p in params]
+            return f"{self.indent_str()}def __init__({', '.join(param_strs)}):\n{body}"
 
         elif isinstance(node, IfStmt):
             cond = self.transform(node.cond)
@@ -92,7 +105,8 @@ class PyTransformer:
 
         elif isinstance(node, Assign):
             value = self.transform(node.value)
-            return f"{self.indent_str()}{node.target} = {value}"
+            type_str = f": {node.type_hint}" if getattr(node, 'type_hint', None) else ""
+            return f"{self.indent_str()}{node.target}{type_str} = {value}"
 
         elif isinstance(node, MemberAssign):
             obj = self.transform(node.obj)
@@ -142,6 +156,17 @@ class PyTransformer:
             func = self.transform(node.func)
             args = ", ".join(self.transform(a) for a in node.args)
             return f"{func}({args})"
+            
+        elif isinstance(node, Pipeline):
+            left_val = self.transform(node.left)
+            if isinstance(node.right, Call):
+                func = self.transform(node.right.func)
+                args = [self.transform(a) for a in node.right.args]
+                args.insert(0, left_val)
+                return f"{func}({', '.join(args)})"
+            else:
+                func = self.transform(node.right)
+                return f"{func}({left_val})"
 
         else:
             raise TypeError(f"Unknown AST node: {type(node)}")

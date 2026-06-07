@@ -117,8 +117,8 @@ def test_compile_hello_example():
         source = f.read()
     py_code = compile_pyro(source)
     output = _capture_exec(py_code)
-    assert "Welcome to Pyro!" in output
-    assert "Greetings, Pyro user" in output
+    assert "Hello from Pyro!" in output
+    assert "My name is Pyro" in output
 
 
 def test_compile_fibonacci_example():
@@ -138,3 +138,41 @@ def test_compile_class_example():
     py_code = compile_pyro(source)
     output = _capture_exec(py_code)
     assert "Pyro" in output
+
+
+def test_booleans_and_none():
+    source = """
+x = True
+y = False
+z = None
+print x
+print y
+print z
+"""
+    py_code = compile_pyro(source)
+    output = _capture_exec(py_code)
+    lines = output.strip().split('\n')
+    assert lines == ['True', 'False', 'None']
+
+
+def test_logical_operators():
+    source = """
+print True and False
+print True or False
+print not True
+"""
+    py_code = compile_pyro(source)
+    output = _capture_exec(py_code)
+    lines = output.strip().split('\n')
+    assert lines == ['False', 'True', 'False']
+
+
+def test_advanced_math_operators():
+    source = """
+print 2 ** 3
+print 10 // 3
+"""
+    py_code = compile_pyro(source)
+    output = _capture_exec(py_code)
+    lines = output.strip().split('\n')
+    assert lines == ['8', '3']

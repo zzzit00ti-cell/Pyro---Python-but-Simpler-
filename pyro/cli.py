@@ -11,6 +11,8 @@ def main():
     compile_parser = subparsers.add_parser("compile", help="Compile .pyro to .py")
     compile_parser.add_argument("input", help=".pyro source file")
     compile_parser.add_argument("-o", "--output", help="output .py file")
+    compile_parser.add_argument("--fast", action="store_true", help="Enable Mojo-like performance optimizations mapped to numba/functools")
+    compile_parser.add_argument("--target", choices=["py", "js", "mcu"], default="py", help="Compilation target platform")
 
     run_parser = subparsers.add_parser("run", help="Compile and run")
     run_parser.add_argument("input", help=".pyro source file")
@@ -24,8 +26,17 @@ def main():
             sys.exit(1)
         output_path = args.output if args.output else input_path.with_suffix(".py")
         try:
-            compile_file(input_path, output_path)
-            print(f"Compiled {input_path} -> {output_path}")
+            compile_file(input_path, output_path, fast_mode=args.fast)
+            if args.target == "js":
+                print(f"✨ Compiled {input_path} -> {output_path} ✨")
+                print("💡 RapydScript/Brython Target: Ready for Transcrypt!")
+                print(f"   Run: python -m transcrypt -b -m -n {output_path}")
+            elif args.target == "mcu":
+                print(f"✨ Compiled {input_path} -> {output_path} ✨")
+                print("💡 MicroPython Target: Ready for MCU flashing!")
+                print(f"   Run: mpremote cp {output_path} :main.py")
+            else:
+                print(f"Compiled {input_path} -> {output_path}")
         except SyntaxError as e:
             print(f"SyntaxError: {e}", file=sys.stderr)
             sys.exit(1)

@@ -78,7 +78,7 @@ def test_func_def():
     stmt = ast.statements[0]
     assert isinstance(stmt, FuncDef)
     assert stmt.name == 'greet'
-    assert stmt.params == ['name']
+    assert stmt.params == [('name', None)]
 
 
 def test_class_def():

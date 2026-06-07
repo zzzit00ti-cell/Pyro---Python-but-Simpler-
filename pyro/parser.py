@@ -1,12 +1,12 @@
 from .ast_nodes import (
     Program, FuncDef, ClassDef, Constructor, IfStmt, ForStmt, WhileStmt,
-    Assign, MemberAssign, ExprStmt, Return, BinOp, Number, String, Var, This, Range, Call, MemberAccess
+    Assign, MemberAssign, ExprStmt, Return, BinOp, Number, String, Var, This, Range, Call, MemberAccess, Pipeline
 )
 from .error_utils import suggest_fixes
 
 
 class ParserError(SyntaxError):
-    def __init__(self, msg, token=None, line=None, col=None):
+    def __init__(self, msg, token=None, line=None, col=None, source_lines=None):
         if token and not line:
             line = token[2] if len(token) > 2 else None
             col = token[3] if len(token) > 3 else None
@@ -14,19 +14,26 @@ class ParserError(SyntaxError):
         self.line = line
         self.col = col
         suggestions = suggest_fixes(msg)
-        full_msg = msg
+        full_msg = "\n" + "-"*40 + "\n🔥 Pyro Syntax Error 🔥\n" + "-"*40 + "\n"
         if line:
-            full_msg = f"Line {line}, col {col}: {msg}"
+            full_msg += f"Message: {msg}\nLocation: Line {line}, col {col}\n"
+            if source_lines and 1 <= line <= len(source_lines):
+                line_text = source_lines[line - 1].rstrip()
+                full_msg += f"\n  {line_text}\n  {' ' * (col - 1)}^"
+        else:
+            full_msg += f"Message: {msg}"
         if suggestions:
-            full_msg += "\nPossible fixes:\n  - " + "\n  - ".join(suggestions)
+            full_msg += "\n\n💡 Pyret-Style Tips:\n  - " + "\n  - ".join(suggestions)
+        full_msg += "\n" + "-"*40 + "\n"
         super().__init__(full_msg)
 
 
 class Parser:
-    def __init__(self, tokens):
+    def __init__(self, tokens, source_lines=None):
         self.tokens = tokens
         self.pos = 0
         self.in_class = False
+        self.source_lines = source_lines
 
     def peek(self):
         return self.tokens[self.pos] if self.pos < len(self.tokens) else None
@@ -34,11 +41,11 @@ class Parser:
     def consume(self, expected_type=None, expected_value=None):
         tok = self.peek()
         if not tok:
-            raise ParserError("Unexpected end of input", line=self.tokens[-1][2] if self.tokens else 1)
+            raise ParserError("Unexpected end of input", line=self.tokens[-1][2] if self.tokens else 1, source_lines=self.source_lines)
         if expected_type and tok[0] != expected_type:
-            raise ParserError(f"Expected {expected_type}, got {tok[0]} '{tok[1]}'", token=tok)
+            raise ParserError(f"Expected {expected_type}, got {tok[0]} '{tok[1]}'", token=tok, source_lines=self.source_lines)
         if expected_value and tok[1] != expected_value:
-            raise ParserError(f"Expected '{expected_value}', got '{tok[1]}'", token=tok)
+            raise ParserError(f"Expected '{expected_value}', got '{tok[1]}'", token=tok, source_lines=self.source_lines)
         self.pos += 1
         return tok
 
@@ -62,7 +69,7 @@ class Parser:
         if self.in_class and self.match('KEYWORD', 'constructor'):
             return self.parse_constructor()
 
-        if self.match('KEYWORD', 'func'):
+        if self.match('KEYWORD', 'func') or self.match('KEYWORD', 'fn'):
             return self.parse_func()
         if self.match('KEYWORD', 'class'):
             return self.parse_class()
@@ -83,20 +90,29 @@ class Parser:
         if self.match('KEYWORD', 'make'):
             self.consume('KEYWORD', 'make')
             target = self.consume('IDENT')[1]
+            type_hint = None
+            if self.match('PUNCT', ':'):
+                self.consume('PUNCT', ':')
+                type_hint = self.consume('IDENT')[1]
             self.consume('OPERATOR', '=')
             value = self.parse_expr()
-            return Assign(target, value)
+            return Assign(target, value, type_hint)
 
         lhs = self.parse_expr()
+        type_hint = None
+        if self.match('PUNCT', ':'):
+            self.consume('PUNCT', ':')
+            type_hint = self.consume('IDENT')[1]
+
         if self.match('OPERATOR', '='):
             self.consume('OPERATOR', '=')
             rhs = self.parse_expr()
             if isinstance(lhs, Var):
-                return Assign(lhs.name, rhs)
+                return Assign(lhs.name, rhs, type_hint)
             elif isinstance(lhs, MemberAccess):
                 return MemberAssign(lhs.obj, lhs.attr, rhs)
             else:
-                raise ParserError("Invalid left-hand side in assignment", token=self.peek())
+                raise ParserError("Invalid left-hand side in assignment", token=self.peek(), source_lines=self.source_lines)
         else:
             return ExprStmt(lhs)
 
@@ -106,7 +122,12 @@ class Parser:
         params = []
         if not self.match('PUNCT', ')'):
             while True:
-                params.append(self.consume('IDENT')[1])
+                p_name = self.consume('IDENT')[1]
+                p_type = None
+                if self.match('PUNCT', ':'):
+                    self.consume('PUNCT', ':')
+                    p_type = self.consume('IDENT')[1]
+                params.append((p_name, p_type))
                 if self.match('PUNCT', ')'):
                     break
                 self.consume('PUNCT', ',')
@@ -118,22 +139,36 @@ class Parser:
         return Constructor(params, body)
 
     def parse_func(self):
-        self.consume('KEYWORD', 'func')
+        is_fast = False
+        tok = self.consume('KEYWORD')
+        if tok[1] == 'fn':
+            is_fast = True
         name = self.consume('IDENT')[1]
         self.consume('PUNCT', '(')
         params = []
         if not self.match('PUNCT', ')'):
             while True:
-                params.append(self.consume('IDENT')[1])
+                p_name = self.consume('IDENT')[1]
+                p_type = None
+                if self.match('PUNCT', ':'):
+                    self.consume('PUNCT', ':')
+                    p_type = self.consume('IDENT')[1]
+                params.append((p_name, p_type))
                 if self.match('PUNCT', ')'):
                     break
                 self.consume('PUNCT', ',')
         self.consume('PUNCT', ')')
+        
+        return_type = None
+        if self.match('OPERATOR', '->'):
+            self.consume('OPERATOR', '->')
+            return_type = self.consume('IDENT')[1]
+
         if self.match('PUNCT', ':'):
             self.consume('PUNCT', ':')
         body = self.parse_block()
         self.consume('KEYWORD', 'end')
-        return FuncDef(name, params, body)
+        return FuncDef(name, params, body, return_type=return_type, is_fast=is_fast)
 
     def parse_class(self):
         self.consume('KEYWORD', 'class')
@@ -189,7 +224,15 @@ class Parser:
         return stmts
 
     def parse_expr(self):
-        return self.parse_logical_or()
+        return self.parse_pipeline()
+
+    def parse_pipeline(self):
+        left = self.parse_logical_or()
+        while self.match('OPERATOR', '|>'):
+            self.consume('OPERATOR', '|>')
+            right = self.parse_logical_or()
+            left = Pipeline(left, right)
+        return left
 
     def parse_logical_or(self):
         left = self.parse_logical_and()
@@ -282,7 +325,7 @@ class Parser:
                 if isinstance(right, Number):
                     return Range(Number(val), right)
                 else:
-                    raise ParserError("Expected number after '..'", token=self.peek())
+                    raise ParserError("Expected number after '..'", token=self.peek(), source_lines=self.source_lines)
             return Number(val)
         if self.match('FLOAT'):
             val = self.consume('FLOAT')[1]
@@ -305,4 +348,4 @@ class Parser:
         if self.match('IDENT'):
             name = self.consume('IDENT')[1]
             return Var(name)
-        raise ParserError(f"Unexpected token", token=self.peek())
+        raise ParserError(f"Unexpected token", token=self.peek(), source_lines=self.source_lines)

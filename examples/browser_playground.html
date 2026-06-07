@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyro Browser Playground</title>
+    <!-- PyScript -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2023.11.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2023.11.1/core.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+        h1 { color: #569cd6; }
+        .container { display: flex; gap: 20px; height: 70vh; }
+        .pane { flex: 1; display: flex; flex-direction: column; }
+        textarea { flex: 1; background: #252526; color: #d4d4d4; border: 1px solid #3c3c3c; padding: 10px; font-family: monospace; font-size: 14px; }
+        button { background: #007acc; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        button:hover { background: #0098ff; }
+        #output { background: #1e1e1e; border: 1px solid #3c3c3c; padding: 10px; height: 100%; white-space: pre-wrap; font-family: monospace; overflow-y: auto;}
+    </style>
+</head>
+<body>
+    <h1>🔥 Pyro Interactive Web Playground</h1>
+    <p>Powered by PyScript, matching Brython & Skulpt visions</p>
+    
+    <!-- Config loads the pyro module from the parent directory! -->
+    <py-config>
+        [[fetch]]
+        from = "../pyro/"
+        to = "pyro"
+    </py-config>
+    
+    <div class="container">
+        <div class="pane">
+            <h3>Input (.pyro)</h3>
+            <textarea id="code"># Type Hints (MyPy)
+fn add(a: int, b: int) -> int:
+    return a + b
+end
+
+# Pipeline (Coconut)
+make num: int = 5
+num |> add(10) |> print
+
+# Fast AI mode (Mojo)
+fn process_ai_data():
+    print("Running in fast mode!")
+end
+process_ai_data()</textarea>
+            <button id="run-btn">Compile & Run</button>
+        </div>
+        <div class="pane">
+            <h3>Output</h3>
+            <div id="output">Output will appear here...</div>
+        </div>
+    </div>
+
+    <script type="py" id="main-script">
+        from pyscript import document
+        from pyro.compiler import compile_pyro
+        import sys
+        import io
+
+        def run_code(e):
+            source = document.getElementById("code").value
+            out_div = document.getElementById("output")
+            
+            try:
+                # 1. Compile Pyro to Python
+                py_code = compile_pyro(source, fast_mode=False) # fast_mode false since Pyodide lack numba
+                
+                # 2. Capture std out to run it purely in browser memory
+                old_stdout = sys.stdout
+                sys.stdout = my_stdout = io.StringIO()
+                
+                # 3. Exec the compiled ast
+                exec(py_code, {})
+                
+                sys.stdout = old_stdout
+                out_div.innerHTML = my_stdout.getvalue() or "Successfully executed with no output."
+                out_div.style.color = "#d4d4d4"
+            except Exception as e:
+                out_div.innerHTML = f"Error:\\n{str(e)}"
+                out_div.style.color = "#f44336"
+
+        # Bind event listener
+        document.getElementById("run-btn").addEventListener("click", run_code)
+    </script>
+</body>
+</html>

@@ -5,8 +5,8 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
-    name="pyro-lang",
-    version="0.1.3",
+    name="the-pyro-lang",
+    version="1.0.1",
     author="Pyro Contributors",
     description="A friendlier Python that compiles to Python",
     long_description=long_description,

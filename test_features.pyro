@@ -1,0 +1,9 @@
+# Type hints & fast mode
+fn process_number(n: int) -> int:
+    return n * 2
+end
+
+make initial: int = 5
+
+# Pipelines
+initial |> process_number |> print

@@ -1,3 +1,22 @@
+Metadata-Version: 2.4
+Name: the-pyro-lang
+Version: 1.0.1
+Summary: A friendlier Python that compiles to Python
+Home-page: https://github.com/pyro-lang/pyro
+Author: Pyro Contributors
+License: MIT
+Project-URL: Homepage, https://github.com/pyro-lang/pyro
+Project-URL: Bug Reports, https://github.com/pyro-lang/pyro/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
 # Pyro – A friendlier Python
 
 Pyro is a programming language that feels like Python but removes the rough edges: no indentation errors, no `self`, no mandatory `print()` parentheses, and blocks end with `end`.

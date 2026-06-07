@@ -1,7 +1,7 @@
 import re
 
 KEYWORDS = {
-    'func', 'class', 'if', 'else', 'elif', 'for', 'while', 'return',
+    'func', 'fn', 'class', 'if', 'else', 'elif', 'for', 'while', 'return',
     'constructor', 'and', 'or', 'not', 'True', 'False',
     'None', 'import', 'from', 'as', 'try', 'except', 'finally',
     'raise', 'with', 'yield', 'end', 'make', 'print', 'in'
@@ -16,7 +16,7 @@ TOKEN_REGEX = re.compile(
     r'\d+|'                               # integer literals
     r'\.\.|'                              # range operator
     r'[a-zA-Z_][a-zA-Z0-9_]*|'           # identifiers/keywords
-    r'==|!=|<=|>=|\*\*|//|'               # multi-char operators (must be before single-char)
+    r'==|!=|<=|>=|\*\*|//|\|>|->|'           # multi-char operators (must be before single-char)
     r'[+\-*/%=<>]|'                       # single-char operators
     r'[(){}[\],;.:]|'                     # punctuation
     r'\n|'                                # newlines
@@ -59,7 +59,7 @@ def tokenize(source):
         elif tok == '..':
             typ = 'RANGE'
         elif tok in ('+', '-', '*', '/', '%', '=', '==', '!=', '<', '>', '<=', '>=',
-                     '//', '**', '@'):
+                     '//', '**', '@', '|>', '->'):
             typ = 'OPERATOR'
         elif tok in '(){}[],;.:':
             typ = 'PUNCT'

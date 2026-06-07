@@ -1,17 +1,33 @@
-print "Welcome to Pyro!"
+print "Hello from Pyro!"
 
-make name = "world"
-print "Hello, " + name
+make x = 10
+y = 20
+print "Sum: " + str(x + y)
 
-x = 10
 if x > 5
-    print "x is greater than 5"
+print "x is large"
 else
-    print "x is small"
+print "x is small"
 end
 
-func greet(person)
-    print "Greetings, " + person
+func greet(name)
+    print "Hello, " + name
 end
 
-greet("Pyro user")
+greet("world")
+
+for i in 1..5
+    print i
+end
+
+class Person
+    constructor(name)
+        this.name = name
+    end
+    func say_hello()
+        print "My name is " + this.name
+    end
+end
+
+p = Person("Pyro")
+p.say_hello()
