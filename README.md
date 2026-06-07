@@ -92,7 +92,17 @@ py_code = compile_pyro(source)
 exec(py_code)
 ```
 
-## Roadmap
+# Roadmap
+
+## Why I created Pyro
+One time I was with my friend talking, and my friend told that it was hard learning Python, but I finished learning under 2 month but he/she stopped because it was hard and I stared teaching him but for him/her it was complex and i got inspired by how he/she makes mistakes and I turned those mistakes to correct syntax that's why I created Pyro. 
+## My/Our Goals in ihis Project
+
+- To make easier to learn
+  
+- Make it a true language
+  
+- Use it for every thing that python does 
 
 - MVP (variables, arithmetic, if/else, loops, functions, classes)
 
@@ -108,10 +118,11 @@ exec(py_code)
 
 - Self‑hosting (compiler written in Pyro itself)
 
-## Contributing
+# Contributing
 
-See CONTRIBUTING.md (to be added). For now, open issues or PRs on GitHub.
-License
+See CONTRIBUTING.md. Open issues or PRs on GitHub.
+
+# License
 
 MIT – use it anywhere, even in commercial projects.
 
