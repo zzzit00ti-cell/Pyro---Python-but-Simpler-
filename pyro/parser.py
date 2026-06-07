@@ -4,6 +4,7 @@ from .ast_nodes import (
 )
 from .error_utils import suggest_fixes
 
+
 class ParserError(SyntaxError):
     def __init__(self, msg, token=None, line=None, col=None):
         if token and not line:
@@ -19,6 +20,7 @@ class ParserError(SyntaxError):
         if suggestions:
             full_msg += "\nPossible fixes:\n  - " + "\n  - ".join(suggestions)
         super().__init__(full_msg)
+
 
 class Parser:
     def __init__(self, tokens):
@@ -187,9 +189,6 @@ class Parser:
         return stmts
 
     def parse_expr(self):
-        return self.parse_conditional()
-
-    def parse_conditional(self):
         return self.parse_logical_or()
 
     def parse_logical_or(self):
@@ -201,12 +200,19 @@ class Parser:
         return left
 
     def parse_logical_and(self):
-        left = self.parse_comparison()
+        left = self.parse_not()
         while self.match('OPERATOR', 'and'):
             op = self.consume('OPERATOR')[1]
-            right = self.parse_comparison()
+            right = self.parse_not()
             left = BinOp(op, left, right)
         return left
+
+    def parse_not(self):
+        if self.match('OPERATOR', 'not'):
+            self.consume('OPERATOR', 'not')
+            operand = self.parse_not()
+            return BinOp('not', None, operand)
+        return self.parse_comparison()
 
     def parse_comparison(self):
         left = self.parse_addition()
@@ -225,12 +231,20 @@ class Parser:
         return left
 
     def parse_multiplication(self):
-        left = self.parse_primary()
-        while self.match('OPERATOR') and self.peek()[1] in ('*', '/', '%', '//'):
+        left = self.parse_unary()
+        while self.match('OPERATOR') and self.peek()[1] in ('*', '/', '%', '//', '**'):
             op = self.consume('OPERATOR')[1]
-            right = self.parse_primary()
+            right = self.parse_unary()
             left = BinOp(op, left, right)
         return left
+
+    def parse_unary(self):
+        """Handle unary minus: -expr"""
+        if self.match('OPERATOR') and self.peek()[1] == '-':
+            self.consume('OPERATOR', '-')
+            operand = self.parse_unary()
+            return BinOp('-', Number(0), operand)
+        return self.parse_primary()
 
     def parse_primary(self):
         node = self.parse_atom()
@@ -270,12 +284,24 @@ class Parser:
                 else:
                     raise ParserError("Expected number after '..'", token=self.peek())
             return Number(val)
+        if self.match('FLOAT'):
+            val = self.consume('FLOAT')[1]
+            return Number(val)
         if self.match('STRING'):
             val = self.consume('STRING')[1]
             return String(val)
         if self.match('THIS'):
             self.consume('THIS')
             return This()
+        if self.match('KEYWORD', 'True'):
+            self.consume('KEYWORD', 'True')
+            return Var('True')
+        if self.match('KEYWORD', 'False'):
+            self.consume('KEYWORD', 'False')
+            return Var('False')
+        if self.match('KEYWORD', 'None'):
+            self.consume('KEYWORD', 'None')
+            return Var('None')
         if self.match('IDENT'):
             name = self.consume('IDENT')[1]
             return Var(name)

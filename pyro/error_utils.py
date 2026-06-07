@@ -14,7 +14,7 @@ def suggest_fixes(error_msg, source_line=None):
         suggestions.append("Variable/function used before definition. Check spelling and order.")
     if "constructor" in error_msg.lower():
         suggestions.append("'constructor' can only be used inside a 'class' block.")
-    if ".." in source_line if source_line else "":
+    if source_line and ".." in source_line:
         suggestions.append("Range '..' works only with numbers: e.g., '1..5'.")
     if not suggestions:
         suggestions.append("Check parentheses, quotes, and block termination ('end').")

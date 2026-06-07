@@ -37,8 +37,9 @@ def main():
             sys.exit(1)
         try:
             py_code = compile_file(input_path, None)
-            # Execute in-memory
-            exec(py_code)
+            # Execute with a shared namespace so recursive functions work
+            exec_globals = {"__builtins__": __builtins__}
+            exec(py_code, exec_globals)
         except SyntaxError as e:
             print(f"SyntaxError: {e}", file=sys.stderr)
             sys.exit(1)
