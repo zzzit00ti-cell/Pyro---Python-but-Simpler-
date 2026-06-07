@@ -55,7 +55,7 @@ p.say_hello()
 ```
 ## Installation
 ```
-pip install pyro-lang
+pip install the-pyro-lang
 ```
 ## Usage
 
